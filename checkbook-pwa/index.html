@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Checkbook</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#161b27">
+<style>
+  :root {
+    --bg:#0f1117; --panel:#161b27; --panel2:#1e2535; --border:#252d3d; --border2:#2d3748;
+    --text:#e8eaf0; --muted:#94a3b8; --dim:#64748b; --accent:#15803d; --accent2:#16a34a;
+    --mint:#86efac; --mintlight:#bbf7d0; --green:#4ade80; --yellow:#facc15; --red:#f87171; --blue:#60a5fa;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; font-family:-apple-system,'Inter',system-ui,sans-serif; background:var(--bg); color:var(--text);
+         padding-bottom:calc(64px + env(safe-area-inset-bottom)); }
+  header { background:var(--panel); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10;
+           padding-top:env(safe-area-inset-top); }
+  .header-inner { max-width:760px; margin:0 auto; display:flex; align-items:center; justify-content:space-between;
+                  gap:8px; padding:10px 16px; }
+  .brand { display:flex; align-items:center; gap:8px; font-weight:700; color:var(--mintlight); }
+  .brand .total { color:var(--muted); font-weight:500; font-size:.8rem; }
+  nav.tabs { position:fixed; bottom:0; left:0; right:0; z-index:20; background:var(--panel); border-top:1px solid var(--border);
+             display:flex; justify-content:center; padding-bottom:env(safe-area-inset-bottom); }
+  nav.tabs button { flex:1; max-width:150px; padding:8px 4px 10px; border:none; background:none; color:var(--dim);
+                    font-size:.68rem; font-weight:600; cursor:pointer; font-family:inherit; position:relative; }
+  nav.tabs button .ic { display:block; font-size:1.25rem; line-height:1.5; }
+  nav.tabs button.active { color:var(--mint); }
+  .badge { position:absolute; top:4px; left:calc(50% + 6px); background:var(--red); color:#fff; border-radius:9px;
+           font-size:.62rem; padding:1px 6px; font-weight:700; }
+  main { max-width:760px; margin:0 auto; padding:16px 16px 48px; }
+  h2 { font-size:1rem; color:var(--mintlight); margin:0 0 .75rem; }
+  .section-label { display:flex; align-items:center; justify-content:space-between; gap:8px; font-weight:700; font-size:.8rem;
+                   text-transform:uppercase; letter-spacing:.06em; color:var(--mintlight); margin:1.5rem 0 .6rem; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin-bottom:8px; }
+  .card.tap { cursor:pointer; }
+  .card.tap:active { background:var(--panel2); }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .wrap { flex-wrap:wrap; }
+  .grow { flex:1; min-width:0; }
+  .ellip { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .big { font-size:1.6rem; font-weight:700; letter-spacing:-.01em; }
+  .amt { font-variant-numeric:tabular-nums; white-space:nowrap; font-weight:600; }
+  .pos { color:var(--green); } .neg { color:var(--red); }
+  .muted { color:var(--dim); font-size:.78rem; }
+  .small { font-size:.8rem; }
+  .empty { color:var(--dim); text-align:center; padding:2.5rem 1rem; font-size:.9rem; }
+  .tag { background:var(--panel2); border-radius:6px; padding:2px 8px; font-size:.7rem; color:#cbd5e1; display:inline-block; }
+  .tag.warn { background:#3a2f0b; color:var(--yellow); } .tag.bad { background:#3d1515; color:var(--red); }
+  .tag.ok { background:#0f2d1c; color:var(--green); }
+  .btn { background:var(--accent); color:#fff; border:none; border-radius:10px; padding:10px 20px; font-weight:700;
+         font-size:.9rem; cursor:pointer; font-family:inherit; }
+  .btn.small { padding:6px 12px; font-size:.78rem; border-radius:8px; }
+  .btn.ghost { background:none; border:1px solid var(--border2); color:var(--muted); font-weight:500; }
+  .btn.danger { background:none; border:1px solid #4a1d1d; color:var(--red); font-weight:500; }
+  .btn.block { width:100%; }
+  .btns { display:flex; gap:8px; flex-wrap:wrap; }
+  input, select, textarea { width:100%; background:var(--panel2); border:1px solid var(--border2); border-radius:9px;
+         color:var(--text); padding:10px 12px; font-size:16px; font-family:inherit; color-scheme:dark; }
+  label.f { display:block; font-size:.72rem; color:var(--muted); font-weight:600; margin:10px 0 4px; text-transform:uppercase; letter-spacing:.04em; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .seg { display:flex; background:var(--panel2); border-radius:10px; padding:3px; gap:3px; }
+  .seg button { flex:1; border:none; background:none; color:var(--muted); padding:8px 4px; border-radius:8px; font-weight:600;
+                font-size:.8rem; cursor:pointer; font-family:inherit; }
+  .seg button.on { background:var(--accent); color:#fff; }
+  .seg button.on.wd { background:#b91c1c; } .seg button.on.xf { background:#1d4ed8; }
+  /* register */
+  .reg-head { position:sticky; top:calc(52px + env(safe-area-inset-top)); z-index:5; background:var(--bg); padding:4px 0 8px; }
+  .txn { display:flex; gap:10px; align-items:center; padding:10px 12px; border-bottom:1px solid var(--border); cursor:pointer; }
+  .txn:active { background:var(--panel2); }
+  .txn.future { opacity:.6; }
+  .txn .d { width:44px; text-align:center; flex-shrink:0; }
+  .txn .d .m { font-size:.62rem; color:var(--dim); text-transform:uppercase; font-weight:700; }
+  .txn .d .n { font-size:1.05rem; font-weight:700; }
+  .txn .r { text-align:right; flex-shrink:0; }
+  .txn .bal { font-size:.72rem; color:var(--dim); font-variant-numeric:tabular-nums; }
+  .stat { width:26px; height:26px; border-radius:7px; border:2px solid #3d4a5c; flex-shrink:0; display:flex; align-items:center;
+          justify-content:center; font-size:.7rem; font-weight:800; color:transparent; background:none; cursor:pointer; padding:0; }
+  .stat.c { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .stat.r { background:#334155; border-color:#334155; color:var(--mintlight); }
+  .list { background:var(--panel); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .list .txn:last-child { border-bottom:none; }
+  .month-sep { padding:6px 12px; font-size:.7rem; font-weight:700; color:var(--muted); background:var(--panel2);
+               text-transform:uppercase; letter-spacing:.06em; }
+  .bar-track { height:8px; background:var(--border); border-radius:4px; overflow:hidden; margin-top:6px; }
+  .bar-fill { height:100%; border-radius:4px; background:var(--accent2); }
+  .fab { position:fixed; right:18px; bottom:calc(78px + env(safe-area-inset-bottom)); z-index:15; width:56px; height:56px;
+         border-radius:28px; background:var(--accent2); color:#fff; border:none; font-size:1.8rem; line-height:1;
+         box-shadow:0 6px 20px rgba(0,0,0,.45); cursor:pointer; }
+  .banner { background:#3a2f0b; border:1px solid #5c4a10; color:var(--yellow); border-radius:12px; padding:10px 14px;
+            margin-bottom:12px; font-size:.85rem; cursor:pointer; }
+  .banner.bad { background:#3d1515; border-color:#5c2020; color:var(--red); }
+  /* modal */
+  #overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:50; display:none; align-items:flex-end; justify-content:center; }
+  #overlay.open { display:flex; }
+  #sheet { background:var(--panel); width:100%; max-width:560px; max-height:92vh; overflow-y:auto; border-radius:18px 18px 0 0;
+           padding:16px 16px calc(20px + env(safe-area-inset-bottom)); border:1px solid var(--border); }
+  @media (min-width:700px){ #overlay { align-items:center; } #sheet { border-radius:18px; } }
+  .sheet-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .x { background:none; border:none; color:var(--muted); font-size:1.4rem; cursor:pointer; }
+  #toast { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(140px + env(safe-area-inset-bottom)); background:#0f2d1c;
+           color:var(--mintlight); border:1px solid var(--accent); padding:8px 16px; border-radius:20px; font-size:.85rem;
+           z-index:60; display:none; }
+  .acct-pick { display:flex; gap:6px; overflow-x:auto; padding-bottom:6px; scrollbar-width:none; }
+  .acct-pick button { flex-shrink:0; background:var(--panel); border:1px solid var(--border); color:var(--muted); border-radius:20px;
+                      padding:6px 14px; font-size:.8rem; cursor:pointer; font-family:inherit; }
+  .acct-pick button.on { background:#0f2d1c; color:var(--mint); border-color:var(--accent2); font-weight:700; }
+  @media print { nav.tabs, .fab, header { display:none; } body { background:#fff; color:#000; } }
+</style>
+</head>
+<body>
+<header><div class="header-inner">
+  <div class="brand"><span>🧾</span><span>Checkbook</span></div>
+  <div class="brand"><span class="total" id="hdrTotal"></span></div>
+</div></header>
+<main id="app"></main>
+<button class="fab" id="fab" onclick="openTxnForm()">+</button>
+<nav class="tabs" id="tabs"></nav>
+<div id="overlay" onclick="if(event.target===this)closeModal()"><div id="sheet"></div></div>
+<div id="toast"></div>
+
+<script>
+/* ---------- storage ---------- */
+const KEY = "checkbook-data-v1";
+const UI_KEY = "checkbook-ui-v1";
+const DEFAULT_CATS = ["Groceries","Dining","Gas/Fuel","Utilities","Rent/Mortgage","Insurance","Phone/Internet","Medical",
+  "Pharmacy","Auto","Shopping","Entertainment","Subscriptions","Gifts","Charity","Travel","Personal Care","Pets",
+  "Household","Education","Fees","Taxes","Paycheck","Interest","Refund","Other Income","Savings","Transfer"];
+const ACCT_TYPES = ["Checking","Savings","Credit Card","Cash","Other"];
+const FREQS = { once:"One time", weekly:"Weekly", biweekly:"Every 2 weeks", monthly:"Monthly", bimonthly:"Every 2 months",
+  quarterly:"Quarterly", semiannual:"Every 6 months", yearly:"Yearly" };
+
+let db = { accounts:[], txns:[], bills:[], settings:{ remindDays:7 } };
+let ui = { view:"home", acct:null, q:"", filter:"all", recon:null };
+try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && d.accounts) db = Object.assign(db, d); } catch {}
+try { Object.assign(ui, JSON.parse(localStorage.getItem(UI_KEY)) || {}); ui.recon = null; } catch {}
+
+function save(){
+  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch { alert("Could not save — storage may be full."); }
+}
+function saveUI(){ try { localStorage.setItem(UI_KEY, JSON.stringify({view:ui.view, acct:ui.acct, filter:ui.filter})); } catch {} }
+
+/* ---------- helpers ---------- */
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad = n => String(n).padStart(2,"0");
+function ymd(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function today(){ return ymd(new Date()); }
+function parseD(s){ const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); }
+function addDays(s, n){ const d = parseD(s); d.setDate(d.getDate()+n); return ymd(d); }
+function daysBetween(a, b){ return Math.round((parseD(b) - parseD(a)) / 86400000); }
+function addMonths(s, n, dom){
+  const d = parseD(s); let y = d.getFullYear(), m = d.getMonth() + n;
+  y += Math.floor(m/12); m = ((m%12)+12)%12;
+  const last = new Date(y, m+1, 0).getDate();
+  return ymd(new Date(y, m, Math.min(dom || d.getDate(), last)));
+}
+function toCents(v){
+  const n = parseFloat(String(v).replace(/[^0-9.\-]/g,""));
+  return isFinite(n) ? Math.round(n*100) : NaN;
+}
+function money(c, signed){
+  const s = (Math.abs(c)/100).toLocaleString(undefined,{style:"currency",currency:"USD"});
+  return c < 0 ? "−"+s : (signed && c > 0 ? "+"+s : s);
+}
+function amtCls(c){ return c < 0 ? "neg" : c > 0 ? "pos" : ""; }
+function fmtDate(s, opts){ return parseD(s).toLocaleDateString(undefined, opts || {month:"short", day:"numeric", year:"numeric"}); }
+function acctById(id){ return db.accounts.find(a => a.id === id); }
+function toast(msg){ const t = document.getElementById("toast"); t.textContent = msg; t.style.display = "block";
+  clearTimeout(toast._t); toast._t = setTimeout(()=> t.style.display = "none", 2200); }
+
+/* ---------- balances ---------- */
+function acctTxns(id){
+  return db.txns.filter(t => t.acct === id).sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : (a.ts||0) - (b.ts||0));
+}
+function balances(id){
+  const a = acctById(id), td = today();
+  let current = a.opening||0, cleared = a.opening||0, projected = a.opening||0, pending = 0;
+  for (const t of db.txns) if (t.acct === id) {
+    projected += t.amt;
+    if (t.date <= td) current += t.amt;
+    if (t.status) cleared += t.amt; else if (t.date <= td) pending++;
+  }
+  return { current, cleared, projected, pending };
+}
+function netWorth(){ return db.accounts.reduce((s,a) => s + balances(a.id).current, 0); }
+
+/* ---------- bills ---------- */
+function nextDue(b){
+  const n = b.next;
+  switch (b.freq) {
+    case "once": return null;
+    case "weekly": return addDays(n, 7);
+    case "biweekly": return addDays(n, 14);
+    case "monthly": return addMonths(n, 1, b.dom);
+    case "bimonthly": return addMonths(n, 2, b.dom);
+    case "quarterly": return addMonths(n, 3, b.dom);
+    case "semiannual": return addMonths(n, 6, b.dom);
+    case "yearly": return addMonths(n, 12, b.dom);
+  }
+  return null;
+}
+function billStatus(b){
+  const d = daysBetween(today(), b.next);
+  if (d < 0) return { cls:"bad", txt: (-d)+" day"+(d===-1?"":"s")+" overdue", d };
+  if (d === 0) return { cls:"bad", txt:"Due today", d };
+  if (d <= (db.settings.remindDays||7)) return { cls:"warn", txt:"Due in "+d+" day"+(d===1?"":"s"), d };
+  return { cls:"", txt:"in "+d+" days", d };
+}
+function activeBills(){ return db.bills.filter(b => b.next).sort((a,b) => a.next < b.next ? -1 : 1); }
+function dueBills(){ const lim = db.settings.remindDays||7; return activeBills().filter(b => daysBetween(today(), b.next) <= lim); }
+function updateBadge(){
+  const n = dueBills().length;
+  try { if (navigator.setAppBadge) n ? navigator.setAppBadge(n) : navigator.clearAppBadge(); } catch {}
+}
+
+/* ---------- navigation ---------- */
+const TABS = [["home","🏦","Accounts"],["register","📒","Register"],["bills","🔔","Bills"],["reports","📊","Reports"],["more","⚙️","More"]];
+function go(v, acct){ ui.view = v; if (acct) ui.acct = acct; ui.recon = null; saveUI(); render(); window.scrollTo(0,0); }
+function renderTabs(){
+  const due = dueBills().length;
+  document.getElementById("tabs").innerHTML = TABS.map(([k,ic,l]) =>
+    `<button class="${ui.view===k?"active":""}" onclick="go('${k}')"><span class="ic">${ic}</span>${l}${k==="bills"&&due?`<span class="badge">${due}</span>`:""}</button>`).join("");
+}
+function render(){
+  if (ui.acct && !acctById(ui.acct)) ui.acct = null;
+  if (!ui.acct && db.accounts[0]) ui.acct = db.accounts[0].id;
+  renderTabs();
+  document.getElementById("hdrTotal").textContent = db.accounts.length ? "Net " + money(netWorth()) : "";
+  document.getElementById("fab").style.display = (db.accounts.length && ["home","register"].includes(ui.view)) ? "" : "none";
+  const v = { home:viewHome, register:viewRegister, bills:viewBills, reports:viewReports, more:viewMore }[ui.view] || viewHome;
+  document.getElementById("app").innerHTML = v();
+  updateBadge();
+}
+
+/* ---------- Accounts (home) ---------- */
+function viewHome(){
+  if (!db.accounts.length) return `
+    <div class="empty"><div style="font-size:2.5rem">🧾</div><p>Welcome! Start by adding your first account —<br>for example <b>Checking</b> or <b>Savings</b>.</p>
+    <button class="btn" onclick="openAcctForm()">Add an account</button></div>`;
+  const due = dueBills(), overdue = due.filter(b => b.next < today());
+  let h = "";
+  if (due.length) h += `<div class="banner ${overdue.length?"bad":""}" onclick="go('bills')">🔔 ${overdue.length ? overdue.length+" overdue, " : ""}${due.length} bill${due.length>1?"s":""} due within ${db.settings.remindDays} days — tap to view</div>`;
+  const groups = {};
+  db.accounts.forEach(a => (groups[a.type] = groups[a.type] || []).push(a));
+  h += `<div class="card"><div class="muted">Net balance, all accounts</div><div class="big ${amtCls(netWorth())}">${money(netWorth())}</div></div>`;
+  for (const type of ACCT_TYPES) if (groups[type]) {
+    const tot = groups[type].reduce((s,a) => s + balances(a.id).current, 0);
+    h += `<div class="section-label"><span>${esc(type)}</span><span class="amt ${amtCls(tot)}">${money(tot)}</span></div>`;
+    for (const a of groups[type]) {
+      const b = balances(a.id);
+      h += `<div class="card tap" onclick="go('register','${a.id}')"><div class="row">
+        <div class="grow"><div class="ellip" style="font-weight:700">${esc(a.name)}</div>
+          <div class="muted">Cleared ${money(b.cleared)}${b.projected!==b.current?` · Projected ${money(b.projected)}`:""}${b.pending?` · ${b.pending} uncleared`:""}</div></div>
+        <div class="amt ${amtCls(b.current)}" style="font-size:1.1rem">${money(b.current)}</div></div></div>`;
+    }
+  }
+  h += `<div class="btns" style="margin-top:12px"><button class="btn ghost small" onclick="openAcctForm()">+ Add account</button>
+    <button class="btn ghost small" onclick="openTxnForm({type:'xfer'})">⇄ Transfer money</button></div>`;
+  const up = activeBills().filter(b => daysBetween(today(), b.next) <= 30).slice(0,5);
+  if (up.length) {
+    h += `<div class="section-label"><span>Upcoming bills</span><button class="btn ghost small" onclick="go('bills')">All</button></div>`;
+    h += up.map(billCard).join("");
+  }
+  return h;
+}
+
+function openAcctForm(id){
+  const a = id ? acctById(id) : { name:"", type:"Checking", opening:0 };
+  openModal(`<div class="sheet-head"><h2>${id?"Edit account":"New account"}</h2><button class="x" onclick="closeModal()">×</button></div>
+    <label class="f">Account name</label><input id="aName" value="${esc(a.name)}" placeholder="e.g. Chase Checking">
+    <label class="f">Type</label><select id="aType">${ACCT_TYPES.map(t=>`<option ${t===a.type?"selected":""}>${t}</option>`).join("")}</select>
+    <label class="f">Starting balance</label><input id="aOpen" inputmode="decimal" value="${a.opening?(a.opening/100).toFixed(2):""}" placeholder="0.00">
+    <div class="muted" style="margin-top:4px">For credit cards, enter what you owe as a negative number (e.g. -250.00).</div>
+    <div class="btns" style="margin-top:16px"><button class="btn" onclick="saveAcct('${id||""}')">Save</button>
+    ${id?`<button class="btn danger" onclick="deleteAcct('${id}')">Delete account</button>`:""}</div>`);
+  setTimeout(()=>document.getElementById("aName").focus(), 50);
+}
+function saveAcct(id){
+  const name = document.getElementById("aName").value.trim();
+  if (!name) return alert("Please name the account.");
+  const raw = document.getElementById("aOpen").value.trim();
+  const opening = raw ? toCents(raw) : 0;
+  if (isNaN(opening)) return alert("Starting balance isn't a valid number.");
+  const type = document.getElementById("aType").value;
+  if (id) Object.assign(acctById(id), { name, type, opening });
+  else { const a = { id:uid(), name, type, opening, created:today() }; db.accounts.push(a); ui.acct = a.id; }
+  save(); closeModal(); render(); toast("Account saved");
+}
+function deleteAcct(id){
+  const a = acctById(id), n = db.txns.filter(t => t.acct === id).length;
+  if (!confirm(`Delete "${a.name}" and its ${n} transaction(s)? This cannot be undone.`)) return;
+  const xf = new Set(db.txns.filter(t => t.acct === id && t.xfer).map(t => t.xfer));
+  db.txns = db.txns.filter(t => t.acct !== id && !(t.xfer && xf.has(t.xfer)));
+  db.bills.forEach(b => { if (b.acct === id) b.acct = ""; });
+  db.accounts = db.accounts.filter(x => x.id !== id);
+  save(); closeModal(); go("home");
+}
+
+/* ---------- Register ---------- */
+function viewRegister(){
+  if (!db.accounts.length) return viewHome();
+  const a = acctById(ui.acct), b = balances(a.id), td = today();
+  let rows = acctTxns(a.id), run = a.opening||0;
+  rows = rows.map(t => (run += t.amt, { t, bal: run })).reverse();
+  const q = ui.q.trim().toLowerCase();
+  if (q) rows = rows.filter(({t}) => [t.payee,t.cat,t.memo,t.num,(t.amt/100).toFixed(2)].join(" ").toLowerCase().includes(q));
+  if (ui.filter === "uncleared") rows = rows.filter(({t}) => !t.status);
+  if (ui.filter === "cleared") rows = rows.filter(({t}) => t.status);
+  if (ui.recon) rows = rows.filter(({t}) => t.status !== "r");
+
+  let h = `<div class="acct-pick">${db.accounts.map(x=>`<button class="${x.id===a.id?"on":""}" onclick="go('register','${x.id}')">${esc(x.name)}</button>`).join("")}</div>`;
+  h += `<div class="card"><div class="row wrap"><div><div class="muted">${esc(a.type)} · Current balance</div>
+      <div class="big ${amtCls(b.current)}">${money(b.current)}</div></div>
+      <button class="btn ghost small" onclick="openAcctForm('${a.id}')">Edit</button></div>
+    <div class="grid2" style="margin-top:8px">
+      <div><div class="muted">Cleared</div><div class="amt">${money(b.cleared)}</div></div>
+      <div><div class="muted">Projected (incl. future)</div><div class="amt">${money(b.projected)}</div></div></div></div>`;
+
+  if (ui.recon) {
+    const diff = ui.recon.stmt - b.cleared;
+    h += `<div class="card" style="border-color:var(--accent2)"><div class="row wrap">
+      <div><div style="font-weight:700">Reconciling</div><div class="muted">Statement ending balance ${money(ui.recon.stmt)}</div>
+      <div class="small">Tap the box next to each item on your statement.</div></div>
+      <div style="text-align:right"><div class="muted">Difference</div><div class="amt ${diff?"neg":"pos"}" style="font-size:1.2rem">${money(diff)}</div></div></div>
+      <div class="btns" style="margin-top:10px"><button class="btn small" onclick="finishRecon()">${diff?"Finish anyway":"✓ Finish — balanced!"}</button>
+      <button class="btn ghost small" onclick="ui.recon=null;render()">Cancel</button></div></div>`;
+  } else {
+    h += `<div class="reg-head"><input placeholder="🔍 Search payee, category, memo, amount…" value="${esc(ui.q)}" oninput="ui.q=this.value;renderRegList()" id="regQ">
+      <div class="row" style="margin-top:8px"><div class="seg grow">${["all","uncleared","cleared"].map(f=>`<button class="${ui.filter===f?"on":""}" onclick="ui.filter='${f}';saveUI();render()">${f[0].toUpperCase()+f.slice(1)}</button>`).join("")}</div>
+      <button class="btn ghost small" onclick="startRecon()">Reconcile</button></div></div>`;
+  }
+  h += `<div id="regList">${regList(rows, td)}</div>`;
+  return h;
+}
+function regList(rows, td){
+  if (!rows.length) return `<div class="empty">No transactions${ui.q?" match your search":" yet — tap + to add one"}.</div>`;
+  let h = `<div class="list">`, lastM = "";
+  for (const {t, bal} of rows) {
+    const m = t.date.slice(0,7);
+    if (m !== lastM) { h += `<div class="month-sep">${fmtDate(t.date.slice(0,8)+"01",{month:"long",year:"numeric"})}</div>`; lastM = m; }
+    const d = parseD(t.date);
+    h += `<div class="txn ${t.date>td?"future":""}" onclick="openTxnForm({id:'${t.id}'})">
+      <button class="stat ${t.status}" onclick="event.stopPropagation();toggleStatus('${t.id}')" title="Cleared">${t.status==="r"?"R":t.status==="c"?"✓":""}</button>
+      <div class="d"><div class="m">${d.toLocaleDateString(undefined,{month:"short"})}</div><div class="n">${d.getDate()}</div></div>
+      <div class="grow"><div class="ellip" style="font-weight:600">${esc(t.payee)||"<span class=muted>(no payee)</span>"}</div>
+        <div class="muted ellip">${t.num?"#"+esc(t.num)+" · ":""}${t.xfer?"⇄ ":""}${esc(t.cat||"")}${t.memo?" · "+esc(t.memo):""}${t.date>td?" · scheduled":""}</div></div>
+      <div class="r"><div class="amt ${amtCls(t.amt)}">${money(t.amt,true)}</div><div class="bal">${money(bal)}</div></div></div>`;
+  }
+  return h + `</div>`;
+}
+function renderRegList(){
+  // re-render only the list so the search box keeps focus
+  const el = document.getElementById("regList"); if (!el) return;
+  const a = acctById(ui.acct); let run = a.opening||0;
+  let rows = acctTxns(a.id).map(t => (run += t.amt, {t, bal:run})).reverse();
+  const q = ui.q.trim().toLowerCase();
+  if (q) rows = rows.filter(({t}) => [t.payee,t.cat,t.memo,t.num,(t.amt/100).toFixed(2)].join(" ").toLowerCase().includes(q));
+  if (ui.filter === "uncleared") rows = rows.filter(({t}) => !t.status);
+  if (ui.filter === "cleared") rows = rows.filter(({t}) => t.status);
+  el.innerHTML = regList(rows, today());
+}
+function toggleStatus(id){
+  const t = db.txns.find(x => x.id === id);
+  if (t.status === "r" && !confirm("This transaction is reconciled. Un-reconcile it?")) return;
+  t.status = t.status ? "" : "c";
+  save(); render();
+}
+function startRecon(){
+  const a = acctById(ui.acct);
+  const v = prompt(`Reconcile "${a.name}"\n\nEnter the ending balance shown on your bank statement:`);
+  if (v === null) return;
+  const c = toCents(v); if (isNaN(c)) return alert("That isn't a valid amount.");
+  ui.recon = { stmt:c }; render();
+}
+function finishRecon(){
+  const b = balances(ui.acct), diff = ui.recon.stmt - b.cleared;
+  if (diff && !confirm(`You're off by ${money(diff)}. Finish anyway?`)) return;
+  db.txns.forEach(t => { if (t.acct === ui.acct && t.status === "c") t.status = "r"; });
+  ui.recon = null; save(); render(); toast("Reconciled ✓");
+}
+
+/* ---------- Transaction form ---------- */
+let form = null;
+function payees(){ return [...new Set(db.txns.filter(t=>!t.xfer).map(t => t.payee).filter(Boolean))].sort(); }
+function cats(){ return [...new Set([...DEFAULT_CATS, ...db.txns.map(t => t.cat).filter(Boolean), ...db.bills.map(b=>b.cat).filter(Boolean)])].sort(); }
+
+function openTxnForm(o){
+  o = o || {};
+  if (!db.accounts.length) return openAcctForm();
+  if (o.id) {
+    const t = db.txns.find(x => x.id === o.id);
+    if (t.xfer) {
+      const pair = db.txns.filter(x => x.xfer === t.xfer), from = pair.find(x => x.amt < 0) || t, to = pair.find(x => x !== from) || t;
+      form = { id:t.id, type:"xfer", acct:from.acct, to:to.acct, date:t.date, amt:Math.abs(t.amt), payee:"", cat:"Transfer", num:"", memo:t.memo||"", status:t.status };
+    } else form = { id:t.id, type:t.amt<0?"wd":"dep", acct:t.acct, date:t.date, amt:Math.abs(t.amt), payee:t.payee, cat:t.cat||"", num:t.num||"", memo:t.memo||"", status:t.status };
+  } else {
+    const acct = o.acct || (ui.view==="register" ? ui.acct : ui.acct) || db.accounts[0].id;
+    form = { id:null, type:o.type||"wd", acct, to:(db.accounts.find(a=>a.id!==acct)||{}).id||"", date:o.date||today(),
+             amt:o.amt||0, payee:o.payee||"", cat:o.cat||"", num:"", memo:o.memo||"", status:"", bill:o.bill||null };
+  }
+  drawTxnForm();
+}
+function drawTxnForm(){
+  const f = form, opts = sel => db.accounts.map(a=>`<option value="${a.id}" ${a.id===sel?"selected":""}>${esc(a.name)}</option>`).join("");
+  const title = f.bill ? "Pay bill" : f.id ? "Edit transaction" : "New transaction";
+  openModal(`<div class="sheet-head"><h2>${title}</h2><button class="x" onclick="closeModal()">×</button></div>
+    <div class="seg">
+      <button class="${f.type==="wd"?"on wd":""}" onclick="formType('wd')">− Withdrawal</button>
+      <button class="${f.type==="dep"?"on":""}" onclick="formType('dep')">+ Deposit</button>
+      ${db.accounts.length>1?`<button class="${f.type==="xfer"?"on xf":""}" onclick="formType('xfer')">⇄ Transfer</button>`:""}
+    </div>
+    <div class="grid2"><div><label class="f">Amount</label><input id="fAmt" inputmode="decimal" placeholder="0.00" value="${f.amt?(f.amt/100).toFixed(2):""}"></div>
+      <div><label class="f">Date</label><input id="fDate" type="date" value="${f.date}"></div></div>
+    ${f.type==="xfer" ? `
+      <div class="grid2"><div><label class="f">From</label><select id="fAcct">${opts(f.acct)}</select></div>
+      <div><label class="f">To</label><select id="fTo">${opts(f.to)}</select></div></div>` : `
+      <label class="f">Account</label><select id="fAcct">${opts(f.acct)}</select>
+      <label class="f">${f.type==="dep"?"From / Description":"Payee"}</label>
+      <input id="fPayee" list="payeeList" value="${esc(f.payee)}" placeholder="${f.type==="dep"?"e.g. Paycheck":"e.g. Kroger"}" onchange="autoCat(this.value)">
+      <datalist id="payeeList">${payees().map(p=>`<option value="${esc(p)}">`).join("")}</datalist>
+      <div class="grid2"><div><label class="f">Category</label><input id="fCat" list="catList" value="${esc(f.cat)}" placeholder="Category">
+        <datalist id="catList">${cats().map(c=>`<option value="${esc(c)}">`).join("")}</datalist></div>
+      <div><label class="f">Check #</label><input id="fNum" inputmode="numeric" value="${esc(f.num)}" placeholder="optional"></div></div>`}
+    <label class="f">Memo</label><input id="fMemo" value="${esc(f.memo)}" placeholder="optional">
+    <label style="display:flex;align-items:center;gap:10px;margin-top:14px;font-size:.9rem"><input type="checkbox" id="fStat" style="width:20px;height:20px" ${f.status?"checked":""}> Cleared the bank</label>
+    <div class="btns" style="margin-top:16px"><button class="btn" onclick="saveTxn()">Save</button>
+      ${!f.id&&!f.bill?`<button class="btn ghost" onclick="saveTxn(true)">Save & add another</button>`:""}
+      ${f.id?`<button class="btn danger" onclick="deleteTxn('${f.id}')">Delete</button>`:""}</div>`);
+  if (!f.amt) setTimeout(()=>{ const e = document.getElementById("fAmt"); e && e.focus(); }, 60);
+}
+function readForm(){
+  const g = id => document.getElementById(id);
+  form.amt = Math.abs(toCents(g("fAmt").value)); form.date = g("fDate").value || today();
+  form.acct = g("fAcct").value; form.memo = g("fMemo").value.trim(); form.status = g("fStat").checked ? (form.status||"c") : "";
+  if (g("fTo")) form.to = g("fTo").value;
+  if (g("fPayee")) { form.payee = g("fPayee").value.trim(); form.cat = g("fCat").value.trim(); form.num = g("fNum").value.trim(); }
+}
+function formType(t){ readForm(); form.type = t; if (t==="xfer" && form.to===form.acct) form.to = (db.accounts.find(a=>a.id!==form.acct)||{}).id; drawTxnForm(); }
+function autoCat(p){
+  const c = document.getElementById("fCat"); if (c.value) return;
+  const last = [...db.txns].reverse().find(t => t.payee === p && t.cat);
+  if (last) c.value = last.cat;
+}
+function removeTxn(id){
+  const t = db.txns.find(x => x.id === id); if (!t) return;
+  db.txns = db.txns.filter(x => t.xfer ? x.xfer !== t.xfer : x.id !== id);
+}
+function saveTxn(another){
+  readForm(); const f = form;
+  if (!f.amt || isNaN(f.amt)) return alert("Please enter an amount.");
+  const ts = Date.now();
+  if (f.id) { const old = db.txns.find(x => x.id === f.id); f.ts = old && old.ts; removeTxn(f.id); }
+  if (f.type === "xfer") {
+    if (f.to === f.acct) return alert("Choose two different accounts.");
+    const x = uid(), A = acctById(f.acct), B = acctById(f.to);
+    db.txns.push({ id:uid(), ts:f.ts||ts, acct:f.acct, date:f.date, amt:-f.amt, payee:"Transfer to "+B.name, cat:"Transfer", memo:f.memo, status:f.status, xfer:x });
+    db.txns.push({ id:uid(), ts:f.ts||ts, acct:f.to, date:f.date, amt:f.amt, payee:"Transfer from "+A.name, cat:"Transfer", memo:f.memo, status:f.status, xfer:x });
+  } else {
+    db.txns.push({ id:f.id||uid(), ts:f.ts||ts, acct:f.acct, date:f.date, amt:f.type==="wd"?-f.amt:f.amt, payee:f.payee, cat:f.cat, num:f.num, memo:f.memo, status:f.status });
+  }
+  if (f.bill) { const b = db.bills.find(x => x.id === f.bill); if (b) { b.lastPaid = f.date; b.next = nextDue(b); } }
+  ui.acct = f.acct; save();
+  if (another) { const acct = f.acct, type = f.type; toast("Saved"); openTxnForm({acct, type}); render(); return; }
+  closeModal(); render(); toast(f.bill ? "Bill paid ✓" : "Saved");
+}
+function deleteTxn(id){
+  const t = db.txns.find(x => x.id === id);
+  if (!confirm(t.xfer ? "Delete this transfer from both accounts?" : "Delete this transaction?")) return;
+  removeTxn(id); save(); closeModal(); render(); toast("Deleted");
+}
+
+/* ---------- Bills ---------- */
+function billCard(b){
+  const s = billStatus(b), a = acctById(b.acct);
+  return `<div class="card"><div class="row">
+    <div class="grow" onclick="openBillForm('${b.id}')" style="cursor:pointer"><div class="ellip" style="font-weight:700">${b.kind==="income"?"💵 ":""}${esc(b.name)}</div>
+      <div class="muted">${fmtDate(b.next,{weekday:"short",month:"short",day:"numeric"})} · ${FREQS[b.freq]}${a?" · "+esc(a.name):""}</div>
+      <span class="tag ${s.cls}" style="margin-top:4px">${s.txt}</span></div>
+    <div style="text-align:right"><div class="amt ${b.kind==="income"?"pos":""}">${money(b.amt)}</div>
+      <div class="btns" style="margin-top:6px;justify-content:flex-end"><button class="btn small" onclick="payBill('${b.id}')">${b.kind==="income"?"Receive":"Pay"}</button>
+      <button class="btn ghost small" onclick="skipBill('${b.id}')">Skip</button></div></div></div></div>`;
+}
+function viewBills(){
+  let h = `<div class="row"><h2 style="margin:0">Bills &amp; reminders</h2><button class="btn small" onclick="openBillForm()">+ Add bill</button></div>`;
+  const bills = activeBills();
+  if (!bills.length) return h + `<div class="empty">No bills yet. Add things like rent, utilities, phone, insurance or your paycheck,<br>and you'll be reminded before each one is due.</div>`;
+  const lim = db.settings.remindDays||7;
+  const over = bills.filter(b => b.next < today()), soon = bills.filter(b => b.next >= today() && daysBetween(today(), b.next) <= lim),
+        later = bills.filter(b => daysBetween(today(), b.next) > lim);
+  const sum = arr => arr.reduce((s,b) => s + (b.kind==="income"?b.amt:-b.amt), 0);
+  if (over.length) h += `<div class="section-label"><span style="color:var(--red)">Overdue</span><span class="amt">${money(sum(over))}</span></div>` + over.map(billCard).join("");
+  if (soon.length) h += `<div class="section-label"><span style="color:var(--yellow)">Due in the next ${lim} days</span><span class="amt">${money(sum(soon))}</span></div>` + soon.map(billCard).join("");
+  if (later.length) h += `<div class="section-label"><span>Later</span></div>` + later.map(billCard).join("");
+  // 30-day forecast per account
+  const end = addDays(today(), 30), fc = {};
+  for (const b of bills) {
+    if (!b.acct || !acctById(b.acct)) continue;
+    let d = b.next, guard = 0; const tmp = Object.assign({}, b);
+    while (d && d <= end && guard++ < 60) { fc[b.acct] = (fc[b.acct]||0) + (b.kind==="income"?b.amt:-b.amt); tmp.next = d; d = nextDue(tmp); }
+  }
+  const ids = Object.keys(fc);
+  if (ids.length) {
+    h += `<div class="section-label"><span>30-day outlook</span></div><div class="card">`;
+    h += ids.map(id => { const a = acctById(id), now = balances(id).projected;
+      return `<div class="row" style="padding:4px 0"><span>${esc(a.name)}</span><span class="small">${money(now)} → <b class="amt ${amtCls(now+fc[id])}">${money(now+fc[id])}</b></span></div>`; }).join("");
+    h += `<div class="muted" style="margin-top:4px">Projected balance after all scheduled bills and deposits over the next 30 days.</div></div>`;
+  }
+  const done = db.bills.filter(b => !b.next);
+  if (done.length) h += `<div class="section-label"><span>Completed one-time bills</span></div>` + done.map(b =>
+    `<div class="card tap" onclick="openBillForm('${b.id}')"><div class="row"><span>${esc(b.name)}</span><span class="muted">paid ${b.lastPaid?fmtDate(b.lastPaid):""}</span></div></div>`).join("");
+  return h;
+}
+function openBillForm(id){
+  const b = id ? db.bills.find(x => x.id === id) : { name:"", amt:0, kind:"expense", freq:"monthly", next:today(), acct:ui.acct||"", cat:"", notes:"" };
+  openModal(`<div class="sheet-head"><h2>${id?"Edit bill":"New bill / reminder"}</h2><button class="x" onclick="closeModal()">×</button></div>
+    <div class="seg"><button id="bkE" class="${b.kind!=="income"?"on wd":""}" onclick="billKind('expense')">Bill (money out)</button>
+      <button id="bkI" class="${b.kind==="income"?"on":""}" onclick="billKind('income')">Income (money in)</button></div>
+    <input type="hidden" id="bKind" value="${b.kind}">
+    <label class="f">Name</label><input id="bName" list="payeeList2" value="${esc(b.name)}" placeholder="e.g. Electric bill">
+    <datalist id="payeeList2">${payees().map(p=>`<option value="${esc(p)}">`).join("")}</datalist>
+    <div class="grid2"><div><label class="f">Amount</label><input id="bAmt" inputmode="decimal" value="${b.amt?(b.amt/100).toFixed(2):""}" placeholder="0.00"></div>
+      <div><label class="f">Next due date</label><input id="bNext" type="date" value="${b.next||today()}"></div></div>
+    <div class="grid2"><div><label class="f">Repeats</label><select id="bFreq">${Object.entries(FREQS).map(([k,v])=>`<option value="${k}" ${k===b.freq?"selected":""}>${v}</option>`).join("")}</select></div>
+      <div><label class="f">Pay from account</label><select id="bAcct"><option value="">—</option>${db.accounts.map(a=>`<option value="${a.id}" ${a.id===b.acct?"selected":""}>${esc(a.name)}</option>`).join("")}</select></div></div>
+    <label class="f">Category</label><input id="bCat" list="catList2" value="${esc(b.cat)}" placeholder="e.g. Utilities">
+    <datalist id="catList2">${cats().map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
+    <label class="f">Notes</label><input id="bNotes" value="${esc(b.notes)}" placeholder="account #, website, autopay…">
+    <div class="btns" style="margin-top:16px"><button class="btn" onclick="saveBill('${id||""}')">Save</button>
+      ${id?`<button class="btn ghost" onclick="billICS('${id}')">📅 Add to phone calendar</button><button class="btn danger" onclick="deleteBill('${id}')">Delete</button>`:""}</div>`);
+}
+function billKind(k){
+  document.getElementById("bKind").value = k;
+  document.getElementById("bkE").className = k==="expense" ? "on wd" : "";
+  document.getElementById("bkI").className = k==="income" ? "on" : "";
+}
+function saveBill(id){
+  const g = x => document.getElementById(x).value.trim();
+  const name = g("bName"), amt = Math.abs(toCents(g("bAmt"))), next = g("bNext");
+  if (!name) return alert("Please name the bill.");
+  if (isNaN(amt)) return alert("Please enter an amount (0 is OK for variable bills).");
+  if (!next) return alert("Please choose the next due date.");
+  const data = { name, amt, next, freq:g("bFreq"), acct:g("bAcct"), cat:g("bCat"), notes:g("bNotes"), kind:g("bKind"), dom:parseD(next).getDate() };
+  if (id) Object.assign(db.bills.find(x => x.id === id), data); else db.bills.push(Object.assign({ id:uid() }, data));
+  save(); closeModal(); render(); toast("Bill saved");
+}
+function deleteBill(id){ if (!confirm("Delete this bill reminder?")) return; db.bills = db.bills.filter(b => b.id !== id); save(); closeModal(); render(); }
+function payBill(id){
+  const b = db.bills.find(x => x.id === id);
+  openTxnForm({ bill:id, type:b.kind==="income"?"dep":"wd", acct:b.acct||ui.acct, amt:b.amt, payee:b.name, cat:b.cat, date:b.next > today() ? b.next : today() });
+}
+function skipBill(id){
+  const b = db.bills.find(x => x.id === id);
+  if (!confirm(`Skip ${b.name} due ${fmtDate(b.next)}${b.freq==="once"?"":" and move to the next due date"}?`)) return;
+  b.next = nextDue(b); save(); render();
+}
+function billICS(id){
+  const b = db.bills.find(x => x.id === id);
+  const rr = { weekly:"FREQ=WEEKLY", biweekly:"FREQ=WEEKLY;INTERVAL=2", monthly:"FREQ=MONTHLY", bimonthly:"FREQ=MONTHLY;INTERVAL=2",
+    quarterly:"FREQ=MONTHLY;INTERVAL=3", semiannual:"FREQ=MONTHLY;INTERVAL=6", yearly:"FREQ=YEARLY" }[b.freq];
+  const d = b.next.replace(/-/g,""), d2 = addDays(b.next,1).replace(/-/g,""), icsEsc = s => String(s||"").replace(/([,;\\])/g,"\\$1");
+  const ics = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Checkbook//EN","BEGIN:VEVENT","UID:"+b.id+"@checkbook",
+    "DTSTAMP:"+new Date().toISOString().replace(/[-:]/g,"").slice(0,15)+"Z","DTSTART;VALUE=DATE:"+d,"DTEND;VALUE=DATE:"+d2,
+    "SUMMARY:"+icsEsc(b.name+" "+money(b.amt)+(b.kind==="income"?" (income)":" due")), rr?"RRULE:"+rr:null,
+    "DESCRIPTION:"+icsEsc(b.notes), "BEGIN:VALARM","TRIGGER:-P"+Math.max(1,db.settings.remindDays||1)+"D","ACTION:DISPLAY","DESCRIPTION:"+icsEsc(b.name+" is due soon"),"END:VALARM",
+    "BEGIN:VALARM","TRIGGER:PT9H","ACTION:DISPLAY","DESCRIPTION:"+icsEsc(b.name+" is due today"),"END:VALARM",
+    "END:VEVENT","END:VCALENDAR"].filter(Boolean).join("\r\n");
+  download(b.name.replace(/[^\w]+/g,"-")+".ics", ics, "text/calendar");
+}
+
+/* ---------- Reports ---------- */
+function viewReports(){
+  if (!db.txns.length) return `<h2>Reports</h2><div class="empty">Add some transactions to see where your money goes.</div>`;
+  ui.rMonth = ui.rMonth || today().slice(0,7);
+  const months = [...new Set(db.txns.map(t => t.date.slice(0,7)).concat([today().slice(0,7)]))].sort().reverse();
+  const tx = db.txns.filter(t => t.date.slice(0,7) === ui.rMonth && !t.xfer && (ui.rAcct ? t.acct === ui.rAcct : true));
+  const inc = tx.filter(t => t.amt > 0).reduce((s,t) => s + t.amt, 0), out = tx.filter(t => t.amt < 0).reduce((s,t) => s - t.amt, 0);
+  const byCat = {}; tx.filter(t => t.amt < 0).forEach(t => byCat[t.cat||"Uncategorized"] = (byCat[t.cat||"Uncategorized"]||0) - t.amt);
+  const rows = Object.entries(byCat).sort((a,b) => b[1]-a[1]), max = rows.length ? rows[0][1] : 1;
+  let h = `<h2>Reports</h2><div class="grid2">
+    <select onchange="ui.rMonth=this.value;render()">${months.map(m=>`<option value="${m}" ${m===ui.rMonth?"selected":""}>${fmtDate(m+"-01",{month:"long",year:"numeric"})}</option>`).join("")}</select>
+    <select onchange="ui.rAcct=this.value;render()"><option value="">All accounts</option>${db.accounts.map(a=>`<option value="${a.id}" ${a.id===ui.rAcct?"selected":""}>${esc(a.name)}</option>`).join("")}</select></div>
+    <div class="grid2" style="margin-top:10px">
+      <div class="card"><div class="muted">Money in</div><div class="amt pos" style="font-size:1.2rem">${money(inc)}</div></div>
+      <div class="card"><div class="muted">Money out</div><div class="amt neg" style="font-size:1.2rem">${money(out)}</div></div></div>
+    <div class="card"><div class="row"><span class="muted">Net for the month</span><span class="amt ${amtCls(inc-out)}">${money(inc-out,true)}</span></div></div>
+    <div class="section-label"><span>Spending by category</span></div>`;
+  h += rows.length ? `<div class="card">` + rows.map(([c,v]) => `<div style="margin:8px 0"><div class="row small"><span>${esc(c)}</span>
+      <span class="amt">${money(v)} <span class="muted">${out?Math.round(v/out*100):0}%</span></span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(v/max*100).toFixed(1)}%"></div></div></div>`).join("") + `</div>`
+    : `<div class="empty">No spending recorded this month.</div>`;
+  h += `<div class="btns"><button class="btn ghost small" onclick="window.print()">🖨 Print / Save PDF</button></div>`;
+  return h;
+}
+
+/* ---------- More / settings ---------- */
+function viewMore(){
+  return `<h2>Settings &amp; backup</h2>
+    <div class="card"><label class="f" style="margin-top:0">Remind me about bills this many days ahead</label>
+      <input type="number" min="0" max="60" value="${db.settings.remindDays}" onchange="db.settings.remindDays=Math.max(0,parseInt(this.value)||0);save();render()"></div>
+    <div class="section-label"><span>Accounts</span></div>
+    ${db.accounts.map(a=>`<div class="card tap" onclick="openAcctForm('${a.id}')"><div class="row"><span>${esc(a.name)} <span class="muted">${esc(a.type)}</span></span><span class="muted">Edit ›</span></div></div>`).join("")}
+    <button class="btn ghost small" onclick="openAcctForm()">+ Add account</button>
+    <div class="section-label"><span>Backup</span></div>
+    <div class="card"><div class="small" style="margin-bottom:10px">Your data is stored only on this device. Export a backup regularly and keep it in iCloud Drive / Files.</div>
+      <div class="btns"><button class="btn small" onclick="exportJSON()">⬇ Export backup (JSON)</button>
+      <button class="btn ghost small" onclick="document.getElementById('imp').click()">⬆ Restore backup</button>
+      <button class="btn ghost small" onclick="exportCSV()">Export CSV (spreadsheet)</button></div>
+      <input type="file" id="imp" accept=".json,application/json" style="display:none" onchange="importJSON(this.files[0])"></div>
+    <div class="section-label"><span>Danger zone</span></div>
+    <button class="btn danger small" onclick="eraseAll()">Erase all data</button>
+    <p class="muted" style="margin-top:24px">Checkbook · ${db.accounts.length} accounts · ${db.txns.length} transactions · ${db.bills.length} bills</p>`;
+}
+function download(name, text, type){
+  const blob = new Blob([text], {type}), url = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+function exportJSON(){ download("checkbook-backup-"+today()+".json", JSON.stringify(db, null, 1), "application/json"); }
+function exportCSV(){
+  const q = s => '"' + String(s ?? "").replace(/"/g,'""') + '"';
+  const lines = [["Account","Date","Check #","Payee","Category","Memo","Amount","Status"].join(",")];
+  for (const a of db.accounts) for (const t of acctTxns(a.id))
+    lines.push([q(a.name), t.date, q(t.num), q(t.payee), q(t.cat), q(t.memo), (t.amt/100).toFixed(2), t.status==="r"?"Reconciled":t.status?"Cleared":""].join(","));
+  download("checkbook-"+today()+".csv", lines.join("\n"), "text/csv");
+}
+function importJSON(file){
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (!Array.isArray(d.accounts) || !Array.isArray(d.txns)) throw 0;
+      if (!confirm(`Replace everything on this device with the backup (${d.accounts.length} accounts, ${d.txns.length} transactions)?`)) return;
+      db = Object.assign({ accounts:[], txns:[], bills:[], settings:{ remindDays:7 } }, d); save(); go("home"); toast("Backup restored");
+    } catch { alert("That file isn't a valid Checkbook backup."); }
+  };
+  r.readAsText(file);
+}
+function eraseAll(){
+  if (!confirm("Erase ALL accounts, transactions and bills from this device?")) return;
+  if (!confirm("Are you sure? Export a backup first if you might want it.")) return;
+  db = { accounts:[], txns:[], bills:[], settings:{ remindDays:7 } }; save(); go("home");
+}
+
+/* ---------- modal ---------- */
+function openModal(html){ document.getElementById("sheet").innerHTML = html; document.getElementById("overlay").classList.add("open"); }
+function closeModal(){ document.getElementById("overlay").classList.remove("open"); form = null; }
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+render();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
