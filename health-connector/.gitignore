@@ -1,0 +1,6 @@
+node_modules/
+data/
+.env
+*.tmp
+export.xml
+apple_health_export/
